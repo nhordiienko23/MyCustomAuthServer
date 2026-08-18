@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Register - MyCustomAuth</title>
+    <style>
+        body { font-family: Arial, sans-serif; background-color: #f4f4f9; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        .register-container { background: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); width: 100%; max-width: 400px; }
+        h2 { text-align: center; color: #333; margin-bottom: 20px; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; color: #666; font-size: 14px; }
+        input[type="text"], input[type="password"], input[type="email"] { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+        button { width: 100%; padding: 10px; background-color: #0056b3; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; margin-top: 10px; }
+        button:hover { background-color: #004494; }
+        .error-msg { color: #d9534f; margin-bottom: 15px; font-size: 14px; text-align: center; }
+        .success-msg { color: #5cb85c; margin-bottom: 15px; font-size: 14px; text-align: center; }
+        .login-link { text-align: center; margin-top: 15px; display: block; font-size: 14px; color: #0056b3; text-decoration: none; }
+    </style>
+</head>
+<body>
+
+<div class="register-container">
+    <h2>Create an Account</h2>
+
+
+    <div th:if="${error}" class="error-msg" th:text="${error}"></div>
+
+
+    <div th:if="${success}" class="success-msg" th:text="${success}"></div>
+
+
+    <form th:action="@{/register}" method="post">
+
+        <div class="form-group">
+            <label for="username">Username</label>
+            <input type="text" id="username" name="username" required>
+        </div>
+
+        <div class="form-group">
+            <label for="email">Email</label>
+            <input type="email" id="email" name="email" required>
+        </div>
+
+        <div class="form-group">
+            <label for="password">Password</label>
+            <input type="password" id="password" name="password" required>
+        </div>
+
+        <button type="submit">Sign Up</button>
+    </form>
+
+    <a href="/login" class="login-link">Already have an account? Log in</a>
+</div>
+
+</body>
+</html>
