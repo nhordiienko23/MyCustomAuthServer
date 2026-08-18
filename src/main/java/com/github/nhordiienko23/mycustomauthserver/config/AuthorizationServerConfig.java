@@ -1,5 +1,6 @@
 package com.github.nhordiienko23.mycustomauthserver.config;
 
+import com.github.nhordiienko23.mycustomauthserver.service.CustomUserDetails;
 import com.nimbusds.jose.jwk.JWKSet;
 import com.nimbusds.jose.jwk.RSAKey;
 import com.nimbusds.jose.jwk.source.ImmutableJWKSet;
@@ -21,6 +22,8 @@ import org.springframework.security.oauth2.server.authorization.client.Registere
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClientRepository;
 import org.springframework.security.oauth2.server.authorization.config.annotation.web.configurers.OAuth2AuthorizationServerConfigurer;
 import org.springframework.security.oauth2.server.authorization.settings.AuthorizationServerSettings;
+import org.springframework.security.oauth2.server.authorization.token.JwtEncodingContext;
+import org.springframework.security.oauth2.server.authorization.token.OAuth2TokenCustomizer;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.LoginUrlAuthenticationEntryPoint;
 import org.springframework.security.web.util.matcher.MediaTypeRequestMatcher;
@@ -64,7 +67,10 @@ public class AuthorizationServerConfig {
                         .requestMatchers("/login", "/error", "/register").permitAll()
                         .anyRequest().authenticated()
                 )
-                .formLogin(Customizer.withDefaults());
+                .formLogin(form -> form
+                        .successHandler(new org.springframework.security.web.authentication.SavedRequestAwareAuthenticationSuccessHandler())
+                        .permitAll()
+                );
 
         return http.build();
     }
@@ -74,10 +80,7 @@ public class AuthorizationServerConfig {
     public RegisteredClientRepository registeredClientRepository(PasswordEncoder passwordEncoder) {
         RegisteredClient clientApp = RegisteredClient.withId(UUID.randomUUID().toString())
                 .clientId("my-client-id")
-
-
                 .clientSecret(passwordEncoder.encode("my-client-secret"))
-
                 .clientAuthenticationMethod(ClientAuthenticationMethod.CLIENT_SECRET_BASIC)
                 .authorizationGrantType(AuthorizationGrantType.AUTHORIZATION_CODE)
                 .authorizationGrantType(AuthorizationGrantType.REFRESH_TOKEN)
@@ -128,5 +131,16 @@ public class AuthorizationServerConfig {
         return new BCryptPasswordEncoder();
     }
 
+    @Bean
+    public OAuth2TokenCustomizer<JwtEncodingContext> tokenCustomizer() {
+        return (context) -> {
+            if ("id_token".equals(context.getTokenType().getValue())) {
+                Object principal = context.getPrincipal().getPrincipal();
 
+                if (principal instanceof CustomUserDetails customUserDetails) {
+                    context.getClaims().claim("email", customUserDetails.getEmail());
+                }
+            }
+        };
+    }
 }

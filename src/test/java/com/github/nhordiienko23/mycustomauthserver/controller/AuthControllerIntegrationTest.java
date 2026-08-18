@@ -7,6 +7,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -20,7 +21,15 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @SpringBootTest(properties = "spring.main.allow-bean-definition-overriding=true")
 @AutoConfigureMockMvc
-@Transactional // Откатывает изменения в БД после каждого теста
+@Transactional
+@TestPropertySource(properties = {
+        "spring.datasource.url=jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1",
+        "spring.datasource.driver-class-name=org.h2.Driver",
+        "spring.datasource.username=sa",
+        "spring.datasource.password=",
+        "spring.jpa.database-platform=org.hibernate.dialect.H2Dialect",
+        "spring.jpa.hibernate.ddl-auto=create-drop"
+})
 public class AuthControllerIntegrationTest {
 
     @Autowired
@@ -28,6 +37,9 @@ public class AuthControllerIntegrationTest {
 
     @Autowired
     private UserRepository userRepository;
+
+    @Autowired
+    private PasswordEncoder passwordEncoder;
 
     @Test
     void showRegistrationForm_shouldReturnRegisterView() throws Exception {
@@ -42,7 +54,7 @@ public class AuthControllerIntegrationTest {
                         .param("username", "newuser")
                         .param("password", "password123")
                         .param("email", "newuser@example.com")
-                        .with(csrf())) // Обязательно для POST-запросов при включенном Spring Security
+                        .with(csrf()))
                 .andExpect(status().isOk())
                 .andExpect(view().name("register"))
                 .andExpect(model().attributeExists("success"));
@@ -52,7 +64,6 @@ public class AuthControllerIntegrationTest {
 
     @Test
     void registerUser_whenUsernameExists_shouldReturnError() throws Exception {
-        // Подготавливаем существующего пользователя
         User existingUser = User.builder()
                 .username("existinguser")
                 .password("encodedpass")
@@ -61,7 +72,6 @@ public class AuthControllerIntegrationTest {
                 .build();
         userRepository.save(existingUser);
 
-        // Пытаемся зарегистрировать с тем же username
         mockMvc.perform(post("/register")
                         .param("username", "existinguser")
                         .param("password", "newpass")
@@ -71,5 +81,24 @@ public class AuthControllerIntegrationTest {
                 .andExpect(view().name("register"))
                 .andExpect(model().attributeExists("error"))
                 .andExpect(model().attribute("error", "Username is already taken!"));
+    }
+
+    @Test
+    void home_whenAuthenticated_shouldReturnHomeViewWithUsername() throws Exception {
+        // Создаем и сохраняем юзера в тестовую базу H2
+        User user = User.builder()
+                .username("homeuser")
+                .password(passwordEncoder.encode("password"))
+                .email("home@example.com")
+                .registeredAt(new Date())
+                .build();
+        userRepository.save(user);
+
+        // Выполняем GET-запрос с аутентификацией (springSecurity() постпроцессор)
+        mockMvc.perform(get("/")
+                        .with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user("homeuser")))
+                .andExpect(status().isOk())
+                .andExpect(view().name("home"))
+                .andExpect(model().attribute("username", "homeuser"));
     }
 }

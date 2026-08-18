@@ -8,6 +8,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -20,6 +21,14 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest(properties = "spring.main.allow-bean-definition-overriding=true")
 @AutoConfigureMockMvc
 @Transactional
+@TestPropertySource(properties = {
+        "spring.datasource.url=jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1",
+        "spring.datasource.driver-class-name=org.h2.Driver",
+        "spring.datasource.username=sa",
+        "spring.datasource.password=",
+        "spring.jpa.database-platform=org.hibernate.dialect.H2Dialect",
+        "spring.jpa.hibernate.ddl-auto=create-drop"
+})
 public class LoginSuccessListenerIntegrationTest {
 
     @Autowired
@@ -33,26 +42,22 @@ public class LoginSuccessListenerIntegrationTest {
 
     @BeforeEach
     void setUp() {
-        // Создаем пользователя для теста логина
         User user = User.builder()
                 .username("testloginuser")
                 .password(passwordEncoder.encode("secretpassword"))
                 .email("login@example.com")
                 .registeredAt(new Date())
-                // lastLoginAt специально не устанавливаем (null)
                 .build();
         userRepository.save(user);
     }
 
     @Test
     void onSuccessfulLogin_shouldUpdateLastLoginAt() throws Exception {
-        // Выполняем логин через стандартную форму Spring Security
         mockMvc.perform(formLogin("/login")
                         .user("testloginuser")
                         .password("secretpassword"))
-                .andExpect(status().is3xxRedirection()); // Успешный логин ведет к редиректу
+                .andExpect(status().is3xxRedirection());
 
-        // Извлекаем пользователя из БД и проверяем, что Listener отработал
         User updatedUser = userRepository.findByUsername("testloginuser").orElseThrow();
         assertNotNull(updatedUser.getLastLoginAt(), "Поле lastLoginAt должно быть обновлено после успешного входа");
     }
