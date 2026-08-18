@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  custom-auth-db:
+    image: postgres:16-alpine
+    container_name: custom-auth-postgres
+    environment:
+      POSTGRES_DB: my_auth_server_db
+      POSTGRES_USER: auth_user
+      POSTGRES_PASSWORD: auth_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - custom-auth-db-data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+volumes:
+  custom-auth-db-data:
