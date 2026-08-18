@@ -7,6 +7,7 @@ import com.github.nhordiienko23.mycustomauthserver.mapper.UserMapper;
 import com.github.nhordiienko23.mycustomauthserver.repository.UserRepository;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Date;
 
@@ -22,6 +23,7 @@ public class UserServiceImpl implements UserService{
     }
 
     @Override
+    @Transactional
     public UserDto register(RegisterRequest registerRequest) {
         if(userRepository.existsByUsername(registerRequest.username())){
             throw new IllegalArgumentException("Username is already taken!");
