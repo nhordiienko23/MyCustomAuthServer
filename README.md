@@ -1,18 +1,22 @@
 # MyCustomAuthServer
 
-A standalone, custom OAuth2 Authorization Server built with Spring Authorization Server. It is designed to act as a centralized identity provider, allowing client applications (like the Team Management System) to authenticate users and obtain JWT access tokens using standard OAuth2 flows.
+A standalone Spring Boot application implementing a custom OAuth2 Authorization Server and OpenID Connect provider.
+
+The server provides user registration and authentication, issues OAuth2 access and refresh tokens, and can be used as a centralized Identity Provider for other Spring Boot applications, such as the Team Management System.
 
 
 ## 🚀 Key Features
 
-* **OAuth2 Provider:** Implements the OAuth 2.0 Authorization Framework.
-* **Authorization Code Grant:** Supports the secure authorization code flow, ideal for web applications.
-* **Refresh Tokens:** Issues refresh tokens to allow clients to maintain long-lived sessions without requiring the user to re-authenticate frequently.
-* **JWT Issuance:** Generates and signs JSON Web Tokens (JWTs) using RSA keys.
-* **Custom Token Claims:** Extends standard JWTs with custom claims (e.g., embedding the user's email directly into the token).
-* **User Management:** Includes basic user registration and authentication logic backed by a PostgreSQL database.
-* **OIDC Support:** Supports OpenID Connect scopes (`openid`, `profile`, `email`).
-* **Dockerized:** Ready to be deployed via Docker Compose alongside its dedicated database.
+
+* **OAuth2 Authorization Server::** Implements the OAuth2 Authorization Code and Refresh Token grant types and supports registration of client applications.
+* **OpenID Connect:** Enables OIDC with openid, profile, and email scopes and provides the standard discovery and UserInfo endpoints.
+* **JWT Token Issuance:** Generates and signs JWT tokens using an RSA key pair and exposes the public key through the JWK Set endpoint.
+* **Custom ID Token Claims:** Adds the authenticated user's email as a custom claim to the ID token.
+* **User Registration and Authentication:** Provides user registration and login using Spring Security, custom UserDetails, UserDetailsService, and BCrypt password hashing.
+* **Login Tracking:** Listens for successful authentication events and updates the user's lastLoginAt timestamp in PostgreSQL.
+* **PostgreSQL Persistence:** Stores user data in PostgreSQL using Spring Data JPA and Hibernate.
+* **Dockerized Environment:** Provides Docker Compose configuration for running the application together with PostgreSQL.
+* **Integration Testing:** Integration tests use Spring Boot Test, MockMvc, Spring Security Test, and PostgreSQL to verify authentication, registration, security configuration, OAuth2/OIDC endpoints, and authentication event handling.
 
 
 ## 🛠 Tech Stack
