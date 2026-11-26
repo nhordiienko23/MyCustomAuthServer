@@ -1,119 +1,117 @@
 # MyCustomAuthServer
 
-A standalone Spring Boot application implementing a custom OAuth2 Authorization Server and OpenID Connect provider.
+![Java 21](https://img.shields.io/badge/Java-21-007396)
+![Spring Boot 3.4.2](https://img.shields.io/badge/Spring_Boot-3.4.2-6DB33F)
+![Spring Authorization Server](https://img.shields.io/badge/Spring_Auth_Server-OAuth2%2FOIDC-6DB33F)
+![PostgreSQL 16](https://img.shields.io/badge/PostgreSQL-16-4169E1)
+![Docker](https://img.shields.io/badge/Docker-2496ED)
 
-The server provides user registration and authentication, issues OAuth2 access and refresh tokens, and can be used as a centralized Identity Provider for other Spring Boot applications, such as the Team Management System.
+A standalone **OAuth2 Authorization Server** and **OpenID Connect (OIDC)** Identity Provider built with **Java 21, Spring Boot 3, Spring Authorization Server, and PostgreSQL**.
 
+The server handles user registration and authentication, issues RSA-signed JWT access, ID, and refresh tokens, exposes standard OIDC discovery and JWKS endpoints, and acts as a centralized Identity Provider for external client applications such as [Team Management System](https://github.com/nhordiienko23/team-management-system).
 
-## 🚀 Key Features
+## Demo
+https://github.com/user-attachments/assets/50a81403-362b-4375-9bce-29ed27a78e24
+## Features
 
+- **OAuth2 Authorization Server:** Supports `authorization_code` and `refresh_token` grant types with `CLIENT_SECRET_BASIC` client authentication.
+- **OpenID Connect (OIDC 1.0):** Supports `openid`, `profile`, and `email` scopes with standard discovery (`/.well-known/openid-configuration`) and `/userinfo` endpoints.
+- **2048-bit RSA JWT Signing & JWKS:** Generates an RSA key pair for JWT signing and exposes the public key via `/oauth2/jwks` for stateless token verification.
+- **Custom ID Token Claims:** Injects `email`, `name`, and `preferred_username` claims into issued OIDC `id_token` JWTs via `OAuth2TokenCustomizer`.
+- **User Registration & Authentication:** Server-rendered Thymeleaf `/login`, `/register`, and `/` views backed by Spring Security, CSRF protection, custom `UserDetailsService`, Jakarta Validation, and BCrypt password hashing.
+- **Login Activity Tracking:** Listens to Spring Security authentication success events and updates the user's `lastLoginAt` timestamp in PostgreSQL.
+- **Containerized Local Setup:** Docker Compose runs the authorization server on port `9000` alongside PostgreSQL on port `5444`, using an isolated `AUTH_SESSION` cookie to avoid session collisions with local client apps.
 
-* **OAuth2 Authorization Server::** Implements the OAuth2 Authorization Code and Refresh Token grant types and supports registration of client applications.
-* **OpenID Connect:** Enables OIDC with openid, profile, and email scopes and provides the standard discovery and UserInfo endpoints.
-* **JWT Token Issuance:** Generates and signs JWT tokens using an RSA key pair and exposes the public key through the JWK Set endpoint.
-* **Custom ID Token Claims:** Adds the authenticated user's email as a custom claim to the ID token.
-* **User Registration and Authentication:** Provides user registration and login using Spring Security, custom UserDetails, UserDetailsService, and BCrypt password hashing.
-* **Login Tracking:** Listens for successful authentication events and updates the user's lastLoginAt timestamp in PostgreSQL.
-* **PostgreSQL Persistence:** Stores user data in PostgreSQL using Spring Data JPA and Hibernate.
-* **Dockerized Environment:** Provides Docker Compose configuration for running the application together with PostgreSQL.
-* **Integration Testing:** Integration tests use Spring Boot Test, MockMvc, Spring Security Test, and PostgreSQL to verify authentication, registration, security configuration, OAuth2/OIDC endpoints, and authentication event handling.
+## Technology Stack
 
+| Area | Technologies |
+| --- | --- |
+| Backend | Java 21, Spring Boot 3.4.2, Spring Web MVC, Spring Data JPA, Hibernate, Jakarta Validation, Lombok |
+| Security & Auth | Spring Security, Spring Authorization Server (OAuth2 / OIDC), 2048-bit RSA JWT, BCrypt |
+| UI Templates | Thymeleaf (login, registration, and home views) |
+| Database | PostgreSQL 16 |
+| Testing & Coverage | JUnit 5, Spring Boot Test, MockMvc, Spring Security Test, Testcontainers (PostgreSQL 16), JaCoCo 0.8.12 |
+| Infrastructure & Build | Docker, Docker Compose, Maven |
 
-## 🛠 Tech Stack
+## Architecture
 
-* **Core:** Java 21, Spring Boot 3
-* **Security:** Spring Security, Spring Authorization Server
-* **Data Access:** Spring Data JPA, Hibernate
-* **Database:** PostgreSQL
-* **Templating:** Thymeleaf (for login and registration views)
-* **Build Tool:** Maven
-* **Infrastructure:** Docker & Docker Compose
-* **Testing:** JUnit 5, Spring Boot Test, Testcontainers
+```mermaid
+sequenceDiagram
+    actor User
+    participant Client as Client App (:8080 / :5173)
+    participant Auth as MyCustomAuthServer (:9000)
+    participant DB as PostgreSQL (:5444)
 
-
-## 🏗 Project Architecture
-
-
-* **`AuthorizationServerConfig`:** The core configuration class. It sets up the OAuth2 endpoints, configures the `SecurityFilterChain` for the authorization server, registers client applications, and manages the RSA key pairs for signing JWTs.
-* **`TokenCustomizer`:** Intercepts the JWT creation process to inject custom claims (like `email`) into the `id_token`.
-* **Controllers & Views:** Handles the user-facing `/login` and `/register` endpoints using Thymeleaf templates.
-* **Services & Repositories:** Manages user data persistence using Spring Data JPA.
-* **Infrastructure:**
-    * `docker-compose.yml`: Defines the `my_auth_server_db` PostgreSQL instance and the application container.
-    * `application.properties`: Configures server ports, database connections, and session handling.
-
-
-## ⚙️ Configuration & Setup
-
-By default, the server is configured to run on port `9000` and connect to a PostgreSQL database on port `5444`.
-
-
-### application.properties Highlights
-
-```properties
-spring.application.name=MyCustomAuthServer
-server.port=9000
-
-spring.datasource.url=jdbc:postgresql://localhost:5444/my_auth_server_db
-spring.datasource.username=auth_user
-spring.datasource.password=auth_password
-
-spring.jpa.hibernate.ddl-auto=update
-spring.jpa.show-sql=true
-
-server.servlet.session.cookie.name=AUTH_SESSION
-spring.main.allow-bean-definition-overriding=true
+    User->>Client: Click "Continue with Custom Auth Server"
+    Client->>Auth: GET /oauth2/authorize (client_id, scope=openid profile email)
+    Auth->>User: Redirect to /login (or /register)
+    User->>Auth: Submit credentials (CSRF-protected form)
+    Auth->>DB: Verify user (BCrypt) & update lastLoginAt
+    Auth->>Client: Redirect with Authorization Code (SavedRequest)
+    Client->>Auth: POST /oauth2/token (code + Basic client auth)
+    Auth-->>Client: RSA-signed access_token, id_token (email/name/preferred_username), refresh_token
+    Client->>Auth: GET /oauth2/jwks & /userinfo
+    Auth-->>Client: Public RSA keys & user profile
 ```
 
+### Key Engineering Highlights
 
-### Registered Clients
-The server is pre-configured with a default client application in AuthorizationServerConfig. If you need to connect a different application, you must update or add a RegisteredClient bean.
+- **Ordered Dual Security Filter Chains:** `@Order(1)` isolates OAuth2/OIDC protocol endpoints and redirects unauthenticated browser requests to `/login`, while `@Order(2)` governs `/login`, `/register`, `/error`, and form authentication with `SavedRequestAwareAuthenticationSuccessHandler` so the authorization request resumes seamlessly after sign-in.
+- **Enriched OIDC Identity Tokens:** `OAuth2TokenCustomizer` extracts `CustomUserDetails` during JWT encoding to inject `email`, `name`, and `preferred_username` into the `id_token`, enabling downstream apps to link accounts cleanly.
+- **Isolated Session Management:** Renames the servlet session cookie to `AUTH_SESSION` to prevent `JSESSIONID` conflicts when running the Identity Provider and Spring Boot client applications simultaneously on `localhost`.
+- **Real-Database Integration Testing:** `AbstractPostgreSqlIntegrationTest` spins up a shared `postgres:16-alpine` container via Testcontainers with `@DynamicPropertySource`, verifying registration, duplicate username handling, BCrypt hashing, CSRF enforcement, and OAuth2/OIDC security flows end-to-end.
 
-**Default Client Configuration:**
+## OAuth2 & OIDC Endpoints
 
-Client ID: `my-client-id`
+| Endpoint | Purpose |
+| --- | --- |
+| `GET /.well-known/openid-configuration` | OpenID Connect provider metadata discovery |
+| `GET /oauth2/authorize` | Authorization Code flow initiation |
+| `POST /oauth2/token` | Exchange authorization code or refresh token for JWTs |
+| `GET /oauth2/jwks` | Public RSA keys (JWK Set) for JWT signature verification |
+| `GET /userinfo` | Authenticated user claims |
+| `GET /login`, `GET /register` | User sign-in and account registration views |
 
-Client Secret: `my-client-secret`
-
-Redirect URI: `http://localhost:8080/login/oauth2/code/my-custom-auth` (This matches the Team Management System's expected callback).
-
-Allowed Scopes: `openid`, `profile`, `email`
-
-Grant Types: `authorization_code`, `refresh_token`
-
-
-## 🚀 Quick Start
+## Getting Started
 
 ### Prerequisites
 
-* **Java 21** (if running locally without Docker)
-* **Maven** 
-* **Docker & Docker Compose** (for containerized execution)
+- **Docker & Docker Compose** (recommended for running the server and required for Testcontainers tests)
+- **Java 21** and **Maven** (for local execution and running tests)
 
+### 1. Clone and run with Docker Compose
 
-### Installation & Run
-
-1. **Clone the repository:**
-   
 ```bash
 git clone [https://github.com/nhordiienko23/MyCustomAuthServer.git](https://github.com/nhordiienko23/MyCustomAuthServer.git)
 cd MyCustomAuthServer
+docker compose up --build
 ```
 
-2. **Build the project:**
-   
-```bash
-docker-compose up --build
-```
-The server will start and be available at `http://localhost:9000`.
+The authorization server starts at **[http://localhost:9000](http://localhost:9000)** and PostgreSQL is exposed on port `5444`.
 
+### Default Configuration & Registered Client
 
-## 🔗 Integration Guide (How to use it as an Identity Provider)
-To use `MyCustomAuthServer` to protect another Spring Boot application (like a resource server or a client application), you need to configure the client application to point to this server.
+Default local development settings (`application.properties` & `AuthorizationServerConfig`):
 
-In your client application's configuration (e.g., `application.yml`), set the OAuth2 provider details to match this server:
+| Setting | Default Value |
+| --- | --- |
+| Issuer / Server URL | `http://localhost:9000` |
+| Database URL | `jdbc:postgresql://localhost:5444/my_auth_server_db` |
+| Session Cookie Name | `AUTH_SESSION` |
+| Client ID | `my-client-id` |
+| Client Secret | `my-client-secret` (BCrypt-encoded in memory) |
+| Client Auth Method | `CLIENT_SECRET_BASIC` |
+| Redirect URIs | `http://localhost:8080/login/oauth2/code/my-custom-auth`<br>`http://localhost:5173/login/oauth2/code/my-custom-auth` |
+| Grant Types | `authorization_code`, `refresh_token` |
+| Scopes | `openid`, `profile`, `email` |
 
-```bash
+> **Note:** For local development, the 2048-bit RSA key pair and `RegisteredClient` are generated in memory on startup (`InMemoryRegisteredClientRepository`). In production, persist clients in a database and load signing keys from an external keystore or secret manager.
+
+## Client Integration Guide
+
+Configure a Spring Boot OAuth2 client (`application.yml`) to authenticate users through `MyCustomAuthServer`:
+
+```yaml
 spring:
   security:
     oauth2:
@@ -137,3 +135,66 @@ spring:
             jwk-set-uri: http://localhost:9000/oauth2/jwks
             user-name-attribute: sub
 ```
+
+## Testing & Code Coverage
+
+The test suite runs against real PostgreSQL 16 containers via **Testcontainers** (Docker must be running), using **JUnit 5, Spring Boot Test, MockMvc, and Spring Security Test** to verify registration, CSRF protection, authentication flows, OAuth2/OIDC endpoints, token customization, and login tracking.
+
+Run all tests and generate the JaCoCo coverage report:
+
+```bash
+mvn clean verify
+```
+
+| Metric | Covered | Total | Coverage |
+| --- | ---: | ---: | ---: |
+| Instructions | 440 | 451 | **97%** |
+| Branches | 8 | 8 | **100%** |
+| Lines | 121 | 125 | **97%** |
+| Methods | 41 | 42 | **98%** |
+| Classes | 10 | 10 | **100%** |
+
+HTML coverage report location: `target/site/jacoco/index.html`
+
+## Project Structure
+
+```text
+MyCustomAuthServer/
+├── src/
+│   ├── main/
+│   │   ├── java/com/github/nhordiienko23/mycustomauthserver/
+│   │   │   ├── config/        # AuthorizationServerConfig (filter chains, clients, RSA JWK, TokenCustomizer)
+│   │   │   ├── controller/    # /login, /register, and home endpoints
+│   │   │   ├── dto/           # Registration DTOs & validation
+│   │   │   ├── entity/        # JPA User entity
+│   │   │   ├── mapper/        # DTO-to-entity mapping
+│   │   │   ├── repository/    # Spring Data JPA UserRepository
+│   │   │   └── service/       # CustomUserDetailsService, registration & login event handling
+│   │   └── resources/
+│   │       ├── templates/     # Thymeleaf views (login, register, home)
+│   │       └── application.properties
+│   └── test/                  # Testcontainers PostgreSQL 16 + MockMvc integration tests
+├── docs/                      # Architecture diagram, screenshots, and coverage report
+├── docker-compose.yml         # App (:9000) + PostgreSQL (:5444)
+└── pom.xml                    # Maven dependencies, Testcontainers & JaCoCo setup
+```
+
+## Screenshots
+
+### Login & Registration Views
+![login.png](docs/login.png)
+![register.png](docs/register.png)
+
+### Home page
+![home.png](docs/home.png)
+
+### OIDC Discovery 
+![oidc-discovery.png](docs/oidc-discovery.png)
+### JWK Set
+![jwks.png](docs/jwks.png)
+
+### JaCoCo Coverage Report
+![jacoco-report.png](docs/jacoco-report.png)
+## Author
+
+**Mykyta Hordiienko** — [GitHub](https://github.com/nhordiienko23)

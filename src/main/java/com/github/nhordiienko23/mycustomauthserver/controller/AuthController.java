@@ -6,11 +6,13 @@ import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import java.security.Principal;
 
 @Controller
 public class AuthController {
+
     private final UserService userService;
 
     public AuthController(UserService userService) {
@@ -22,13 +24,21 @@ public class AuthController {
         return "register";
     }
 
-
     @PostMapping("/register")
-    public String registerUser(RegisterRequest registerRequest, Model model) {
+    public String registerUser(
+            RegisterRequest registerRequest,
+            RedirectAttributes redirectAttributes,
+            Model model
+    ) {
         try {
             userService.register(registerRequest);
-            model.addAttribute("success", "Account created successfully! You can now log in.");
-            return "register";
+
+            redirectAttributes.addFlashAttribute(
+                    "success",
+                    "Account created successfully! You can now log in."
+            );
+
+            return "redirect:/login";
 
         } catch (IllegalArgumentException e) {
             model.addAttribute("error", e.getMessage());
