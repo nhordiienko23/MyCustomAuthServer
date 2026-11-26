@@ -85,6 +85,7 @@ public class AuthorizationServerConfig {
                 .authorizationGrantType(AuthorizationGrantType.AUTHORIZATION_CODE)
                 .authorizationGrantType(AuthorizationGrantType.REFRESH_TOKEN)
                 .redirectUri("http://localhost:8080/login/oauth2/code/my-custom-auth")
+                .redirectUri("http://localhost:5173/login/oauth2/code/my-custom-auth")
                 .scope(OidcScopes.OPENID)
                 .scope(OidcScopes.PROFILE)
                 .scope(OidcScopes.EMAIL)
@@ -133,12 +134,15 @@ public class AuthorizationServerConfig {
 
     @Bean
     public OAuth2TokenCustomizer<JwtEncodingContext> tokenCustomizer() {
-        return (context) -> {
+        return context -> {
             if ("id_token".equals(context.getTokenType().getValue())) {
                 Object principal = context.getPrincipal().getPrincipal();
 
                 if (principal instanceof CustomUserDetails customUserDetails) {
-                    context.getClaims().claim("email", customUserDetails.getEmail());
+                    context.getClaims()
+                            .claim("email", customUserDetails.getEmail())
+                            .claim("name", customUserDetails.getUsername())
+                            .claim("preferred_username", customUserDetails.getUsername());
                 }
             }
         };
