@@ -1,19 +1,20 @@
 package com.github.nhordiienko23.mycustomauthserver.controller;
 
+import com.github.nhordiienko23.mycustomauthserver.AbstractPostgreSqlIntegrationTest;
 import com.github.nhordiienko23.mycustomauthserver.entity.User;
 import com.github.nhordiienko23.mycustomauthserver.repository.UserRepository;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Date;
 
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -22,15 +23,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest(properties = "spring.main.allow-bean-definition-overriding=true")
 @AutoConfigureMockMvc
 @Transactional
-@TestPropertySource(properties = {
-        "spring.datasource.url=jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1",
-        "spring.datasource.driver-class-name=org.h2.Driver",
-        "spring.datasource.username=sa",
-        "spring.datasource.password=",
-        "spring.jpa.database-platform=org.hibernate.dialect.H2Dialect",
-        "spring.jpa.hibernate.ddl-auto=create-drop"
-})
-public class AuthControllerIntegrationTest {
+@DisplayName("Authentication controller integration")
+class AuthControllerIntegrationTest extends AbstractPostgreSqlIntegrationTest {
 
     @Autowired
     private MockMvc mockMvc;
@@ -42,6 +36,7 @@ public class AuthControllerIntegrationTest {
     private PasswordEncoder passwordEncoder;
 
     @Test
+    @DisplayName("Should display the registration form")
     void showRegistrationForm_shouldReturnRegisterView() throws Exception {
         mockMvc.perform(get("/register"))
                 .andExpect(status().isOk())
@@ -49,6 +44,7 @@ public class AuthControllerIntegrationTest {
     }
 
     @Test
+    @DisplayName("Should register a user with an encoded password")
     void registerUser_shouldSaveUserAndReturnSuccess() throws Exception {
         mockMvc.perform(post("/register")
                         .param("username", "newuser")
@@ -59,18 +55,24 @@ public class AuthControllerIntegrationTest {
                 .andExpect(view().name("register"))
                 .andExpect(model().attributeExists("success"));
 
-        assertTrue(userRepository.existsByUsername("newuser"));
+        User registeredUser = userRepository.findByUsername("newuser").orElseThrow();
+        assertAll(
+                () -> assertNotNull(registeredUser.getId()),
+                () -> assertEquals("newuser@example.com", registeredUser.getEmail()),
+                () -> assertTrue(passwordEncoder.matches("password123", registeredUser.getPassword())),
+                () -> assertNotNull(registeredUser.getRegisteredAt())
+        );
     }
 
     @Test
+    @DisplayName("Should show an error when the username is already taken")
     void registerUser_whenUsernameExists_shouldReturnError() throws Exception {
-        User existingUser = User.builder()
+        userRepository.save(User.builder()
                 .username("existinguser")
                 .password("encodedpass")
                 .email("existing@example.com")
                 .registeredAt(new Date())
-                .build();
-        userRepository.save(existingUser);
+                .build());
 
         mockMvc.perform(post("/register")
                         .param("username", "existinguser")
@@ -84,17 +86,35 @@ public class AuthControllerIntegrationTest {
     }
 
     @Test
+    @DisplayName("Should reject registration requests without a CSRF token")
+    void registerUser_withoutCsrfToken_shouldBeForbidden() throws Exception {
+        mockMvc.perform(post("/register")
+                        .param("username", "csrfuser")
+                        .param("password", "password123")
+                        .param("email", "csrf@example.com"))
+                .andExpect(status().isForbidden());
+
+        assertFalse(userRepository.existsByUsername("csrfuser"));
+    }
+
+    @Test
+    @DisplayName("Should redirect unauthenticated users from the home page to login")
+    void home_whenUnauthenticated_shouldRedirectToLogin() throws Exception {
+        mockMvc.perform(get("/"))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrlPattern("**/login"));
+    }
+
+    @Test
+    @DisplayName("Should show the home page and username for an authenticated user")
     void home_whenAuthenticated_shouldReturnHomeViewWithUsername() throws Exception {
-        // Создаем и сохраняем юзера в тестовую базу H2
-        User user = User.builder()
+        userRepository.save(User.builder()
                 .username("homeuser")
                 .password(passwordEncoder.encode("password"))
                 .email("home@example.com")
                 .registeredAt(new Date())
-                .build();
-        userRepository.save(user);
+                .build());
 
-        // Выполняем GET-запрос с аутентификацией (springSecurity() постпроцессор)
         mockMvc.perform(get("/")
                         .with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user("homeuser")))
                 .andExpect(status().isOk())

@@ -1,22 +1,17 @@
 package com.github.nhordiienko23.mycustomauthserver;
 
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.TestPropertySource;
+import org.springframework.transaction.annotation.Transactional;
 
 @SpringBootTest(properties = "spring.main.allow-bean-definition-overriding=true")
-@TestPropertySource(properties = {
-        "spring.datasource.url=jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1",
-        "spring.datasource.driver-class-name=org.h2.Driver",
-        "spring.datasource.username=sa",
-        "spring.datasource.password=",
-        "spring.jpa.database-platform=org.hibernate.dialect.H2Dialect",
-        "spring.jpa.hibernate.ddl-auto=create-drop"
-})
-class MyCustomAuthServerApplicationTests {
+@Transactional
+@DisplayName("Application integration")
+class MyCustomAuthServerApplicationTests extends AbstractPostgreSqlIntegrationTest {
 
     @Test
+    @DisplayName("Should start the application context with PostgreSQL")
     void contextLoads() {
     }
-
 }
